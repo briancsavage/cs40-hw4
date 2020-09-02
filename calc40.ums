@@ -1,0 +1,332 @@
+ ###################################################################
+ #                     calc40.ums
+ #        
+ #     Assignment: HW7 
+ #     Authors:  Brian Savage(bsavag01) and Noah Shamus(nshamu01)
+ #     Date:     April 28, 2020
+ #     Purpose: Creates jumptable and handles all operations for
+ #              calculating the rpn
+ ##################################################################
+
+
+.section init
+.zero r0
+.temps r5,r6,r7
+
+############################  Table Set Up  ############################ 
+    init_table:                 #begin init of table
+        r1 := 0                 
+        r3 := 0
+        goto zero_table
+
+    # recursive function to initialize all spaces in jumptable to point to
+    # input error
+    zero_table:
+        r4 := jumptable + r3
+        m[r0][r4] := input_error   # initialize all spaces in table to point to
+        r3 := r3 + 1               # input error
+        if (r3 != 255) goto zero_table
+        r3 := jumptable + '0'      # jumptable position corresponding to '0'
+        goto set_table              
+
+    # recursive function to initialize '0' - '9' in jumptable to point to
+    # the append label
+    set_table:
+        m[r0][r3] := append 
+        r3 := r3 + 1                               # increment counter
+        if (r3 != jumptable + ':') goto set_table
+        goto set_ops
+
+    # define operations stored in table
+    set_ops:                                     # label pointer to add leading
+        m[r0][jumptable +  '!'] := make_leader   # or following values
+        m[r0][jumptable +  ' '] := waiting       
+        m[r0][jumptable + '\n'] := newline
+        m[r0][jumptable +  '+'] := add
+        m[r0][jumptable +  '-'] := sub
+        m[r0][jumptable +  '*'] := mult
+        m[r0][jumptable +  '/'] := div
+        m[r0][jumptable +  '|'] := or
+        m[r0][jumptable +  '&'] := and
+        m[r0][jumptable +  'c'] := negate
+        m[r0][jumptable +  '~'] := complement
+        m[r0][jumptable +  's'] := swap
+        m[r0][jumptable +  'd'] := dupl
+        m[r0][jumptable +  'p'] := popoff
+        m[r0][jumptable +  'z'] := clear
+        goto main                         # initialization finished, start main
+
+# Read Character to Complete Decimal Value 
+####################  Appending Value  #################### 
+.section text
+    # Converts char val on stack to be a deciaml val on stack then consolidates
+    # the numbers at r2 and r2 + 1 using make_leader or append_follower
+    append:
+        pop r3 off stack r2   # r3 is currently the inputted char value
+        r3 := r3 - '0'        # convert from char representation to decimal val
+        push r3 on stack r2   
+        goto m[r0][jumptable + '!']  # goto make_leader or append_follower
+                                     # instructions based on the address stored
+                                     #   at '!' in the jumptable
+
+    # Start of a new value           
+    make_leader:
+        r1 := r1 + 1                 # r1 holds the number of vals in the stack
+        m[r0][jumptable + '!'] := append_follower   # make next input value be
+        goto main                                   #   a follower
+        
+    append_follower:
+        pop r4 off stack r2          # r4 is the most recent input decimal val
+        pop r3 off stack r2          # r3 is the rolling inputted value
+        r3 := r3 * 10                # add a 0 to the end of our rolling val
+        r3 := r3 + r4                # update new end 0 with our most recent
+        push r3 on stack r2          #   input, then push our aggregated val on
+        goto main                    #   to the stack
+
+# Command Implementations  
+####################  Printing  #################### 
+    # remove '\n' from stack, make next input leading, then return to main
+    newline:
+        pop stack r2                           # remove '\n' from stack
+        m[r0][jumptable + '!'] := make_leader  # set function to make_leader
+        goto print                             # so next input will be a
+                                               # leading value
+
+####################  Waiting  #################### 
+    # remove ' ' from stack, make next input leading, then returns to main
+    waiting:
+        pop stack r2                            # remove ' ' from stack
+        m[r0][jumptable + '!'] := make_leader   # set function to make_leader
+        goto main                               # so next input will be a
+                                                # leading value
+
+####################  Add  #################### 
+    # Add tops two values on stack then pushs result to stack
+    # then returns to main
+    add:
+        pop stack r2                           # remove '+' from stack
+        if (r1 <s 2) goto underflow_2          # check if stack has at least
+        pop r3 off stack r2                    # two values to perform operator
+        pop r4 off stack r2             # r3 holds top value
+                                        # r4 holds the value below the top
+        r4 := r3 + r4                          # add values from stack
+        r1 := r1 - 1                           # decrease num values on stack
+        
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading val
+        goto main                              # return to main
+
+####################  Sub  #################### 
+    # Subtracts top two values on stack then pushs result to stack
+    # then returns to main
+    sub:
+        pop stack r2                        # remove '-' from stack
+        if (r1 <s 2) goto underflow_2       # check if stack has at least
+        pop r3 off stack r2                 # two values to perform operator
+        pop r4 off stack r2             # r3 holds top value
+                                        # r4 holds the value below the top
+        r4 := r4 - r3                           # subtract values
+        r1 := r1 - 1                            # decrease num values on stack
+
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading val
+        goto main                              # return to main
+
+####################  Mult  ####################
+    # Multiplies top two values on stack then push result to stack
+    # then returns to main
+    mult:
+        pop stack r2                        # remove '*' from stack
+        if (r1 <s 2) goto underflow_2       # check if stack has at least
+        pop r3 off stack r2                 # two values to perform operator
+        pop r4 off stack r2             # r3 holds top value
+                                        # r4 holds the value below the top
+        r4 := r3 * r4                       # multiply values
+        r1 := r1 - 1                        # decrease num values on stack
+
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading val
+        goto main                              # return to main
+
+####################  Div  #################### 
+    # Divides top two values on the stack, handles [+/+] [+/-] [-/+] and [-/-]
+    # then pushes result of operation to the stack and returns to main
+    div:
+        pop stack r2                        # remove '/' from stack
+        if (r1 <s 2) goto underflow_2       # check if stack has at least
+        pop r3 off stack r2                 # two values to perform operator
+        pop r4 off stack r2                 # r3 holds top value
+                                            # r4 holds the value below the top
+        if (r3 == 0) goto divide_by_zero_error  # check if dividing by 0
+        if (r4 <s r0) goto divide_neg_numerator # divide if numerator is neg
+        if (r3 <s r0) goto divide_neg_denom     # divide if denominator is neg
+
+        r4 := r4 / r3                             # divide normally
+        r1 := r1 - 1                              # update number of values on
+                                                  # stack
+
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading val
+        goto main                              # return to main
+    
+    divide_neg_numerator:                           # check if denom 
+            if (r3 <s r0) goto divide_neg_denom_num # is also negative
+            r4 := -1 * r4                           # make numerator positive
+            r4 := r4 / r3                           
+            r4 := r4 * -1                          # make result negative
+            r1 := r1 - 1                           # update number of values on
+                                                   # stack
+            push r4 on stack r2                    # push result to stack
+            m[r0][jumptable + '!'] := make_leader  # make next input a leading
+            goto main                              # value, return to main
+
+    divide_neg_denom_num:                   # make denom and numerator positive
+            r4 := -1 * r4                   # and keep the solution positive
+            r3 := -1 * r3                   
+            r4 := r4 / r3
+            r1 := r1 - 1                        # update number of values on
+                                                # stack
+            push r4 on stack r2                    # push result to stack
+            m[r0][jumptable + '!'] := make_leader  # make next input a leading
+            goto main                              # value, return to main
+    
+    divide_neg_denom:                       # divide with a positive denom
+            r3 := -1 * r3
+            r4 := r4 / r3
+            r4 := r4 * -1                   # make result negative again
+            r1 := r1 - 1                    # update number of values on
+                                            # stack
+            push r4 on stack r2                    # push result to stack
+            m[r0][jumptable + '!'] := make_leader  # make next input a leading
+            goto main                              # value, return to main
+
+####################  Or  #################### 
+    # Performs a bitwise or on the top two values then pushes result to stack
+    # then goes to main
+    or:
+        pop stack r2                   # remove '|' from stack
+        if (r1 <s 2) goto underflow_2  # check if stack has at least
+        pop r3 off stack r2            # two values to perform operator
+        pop r4 off stack r2            # r3 holds top value
+                                       # r4 holds the value below the top
+
+        r4 := r4 | r3                   # bitwise or
+        r1 := r1 - 1                    # update number of values on
+                                        # stack
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading
+        goto main                              # value, return to main
+
+####################  And  #################### 
+    # Performs a bitwise and on the two values then pushes result to stack
+    # then goes to main
+    and:
+        pop stack r2                   # remove '&' from stack
+        if (r1 <s 2) goto underflow_2  # check if stack has at least
+        pop r3 off stack r2            # two values to perform operator
+        pop r4 off stack r2            # r3 holds top value
+                                       # r4 holds the value below the top
+        r4 := r3 & r4                  # bitwise and
+        r1 := r1 - 1                   # update number of values on
+                                       # stack
+
+        push r4 on stack r2                    # push result to stack
+        m[r0][jumptable + '!'] := make_leader  # make next input a leading
+        goto main                              # value, return to main
+
+####################  Negate  #################### 
+    # Negates value on the top of the stack then pushes result then goes to 
+    # main
+    negate:
+        pop stack r2                    # remove 'c' from stack
+        if (r1 <s 1) goto underflow_1   # check if stack has at least
+        pop r3 off stack r2             # one value to perform operator
+                                        # r3 holds top value
+        r3 := r3 * -1                   # make negative
+
+        push r3 on stack r2                         # push result to stack
+        m[r0][jumptable + '!'] := make_leader       # make next input a leading
+        goto main                                   # value, return to main
+
+####################  Complement  #################### 
+    # Gets bitwise complement of top of the stack then pushes result then goes
+    # to main
+    complement:
+        pop stack r2                    # remove '~' from stack
+        if (r1 <s 1) goto underflow_1   # check if stack has at least
+        pop r3 off stack r2             # one value to perform operator
+                                        # r3 holds top value
+        r3 := ~r3                       # find complement
+
+        push r3 on stack r2                     # push result to stack
+        m[r0][jumptable + '!'] := make_leader   # make next input a leading
+        goto main                               # value, return to main
+
+####################  Swap  #################### 
+    # Swaps top two values on stack then returns to main
+    swap:
+        pop stack r2                   # remove 's' from stack
+        if (r1 <s 2) goto underflow_2  # check if stack has at least
+        pop r3 off stack r2            # two values to perform operator
+        pop r4 off stack r2            # r3 holds top value
+                                       # r4 holds the value below the top
+        push r3 on stack r2            # swap top two values on stack
+        push r4 on stack r2            # by pushing top then pushing top - 1
+    
+        m[r0][jumptable + '!'] := make_leader     # make next input a leading
+        goto main                                 # value, return to main
+
+####################  Duplicate  #################### 
+    # Duplicates the top of the stack and returns to main
+    dupl:
+        pop stack r2                    # remove 'd' from stack
+        if (r1 <s 1) goto underflow_1   # check if stack has at least
+        pop r3 off stack r2             # one value to perform operator
+                                        # r3 holds top value
+                                        
+        push r3 on stack r2             # duplicate top of stack
+        push r3 on stack r2             # by pushing it twice
+        r1 := r1 + 1                    # update number of values on stack
+        m[r0][jumptable + '!'] := make_leader   # make next input a leading
+        goto main                               # value, return to main
+
+####################  Pop Off  #################### 
+    # Pops off the top of the stack and returns to main
+    popoff:
+        pop stack r2                     # remove 'p' from stack
+        if (r1 <s 1) goto underflow_1    # check if stack has at least 1 number
+        pop stack r2                     # remove top of stack
+        r1 := r1 - 1                     # update number of values on stack
+        m[r0][jumptable + '!'] := make_leader   # make next input a leading
+        goto main                               # value, return to main
+
+####################  Clear  #################### 
+    # Clears the value stack then returns to main
+    clear:
+        m[r0][jumptable + '!'] := make_leader # make next input a leading value
+        if (r1 == 0) goto main          # stop if stack is empty
+        pop stack r2                    # clear the stack
+        r1 := r1 - 1                    # update number of values on stack
+        goto clear                      # recurisve call back to clear
+
+############################  Error Handlings  ############################ 
+    input_error:            # invalid input character
+        pop r3 off stack r2
+        output "Unknown character "
+        output r3
+        output "\n"
+        goto main
+
+    underflow_1:            # underflow error of 1
+        output "Stack underflow---expected at least 1 element\n"
+        goto main
+    
+    underflow_2:            # underflow error of 2
+        output "Stack underflow---expected at least 2 elements\n"
+        goto main
+
+    divide_by_zero_error:    # tried dividing by 0
+        output "Division by zero\n"
+        push r4 on stack r2
+        push r3 on stack r2
+        goto main

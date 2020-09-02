@@ -1,0 +1,31 @@
+ ###################################################################
+ #                     urt0.ums
+ #        
+ #     Assignment: HW7 
+ #     Authors:  Brian Savage(bsavag01) and Noah Shamus(nshamu01)
+ #     Date:     April 28, 2020
+ #     Purpose: Handles the initialization of the program
+ ##################################################################
+
+# Register Designations
+# r0 will hold 0, except for print in which it is used as a temp register
+# r1 will hold the number of values in the value stack
+# r3 is a nonvolatile register that holds the user input, or is used to perform
+#    operations
+# r4 is a nonvolatile register that is used to perform operations
+# r5 is a nonvolatile register in urt0 and a temporary register in calc40
+# r6 is a temporary register
+# r7 is a temporary register
+
+.section init
+.zero r0
+.temps r6,r7
+ 
+jumptable:
+.space 256
+
+.space 1000000
+endstack:
+
+r0 := 0
+r2 := endstack

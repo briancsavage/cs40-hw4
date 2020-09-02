@@ -1,0 +1,34 @@
+ ###################################################################
+ #                     callmain.ums
+ #        
+ #     Assignment: HW7 
+ #     Authors:  Brian Savage(bsavag01) and Noah Shamus(nshamu01)
+ #     Date:     April 28, 2020
+ #     Purpose: Handles the main and calls to the jumptable
+ ##################################################################
+
+.section init
+.temps r5, r6, r7
+.zero r0
+
+# main function which will take in input
+# and go to the jumtable instruction
+main: 
+    r3 := input()                     # get user inputted char
+    push r3 on stack r2               # push the input to the value stack
+    if (r3 == '!') goto input_error   # '!' is reserved and needs to be checked
+    r3 := jumptable + r3              # immediately 
+    if (r3 == -1) goto remstk     # check if input is EOF
+    goto m[r0][r3]                # goto jumptable + input function pointer
+
+
+# remove every element on the stack
+remstk:
+    if (r1 == 0) goto end   
+    pop stack r2
+    r1 := r1 - 1
+    goto remstk
+ 
+#end the program
+end:
+    halt

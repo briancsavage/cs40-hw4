@@ -1,0 +1,80 @@
+ ###################################################################
+ #                     printd.ums
+ #        
+ #     Assignment: HW7 
+ #     Authors:  Brian Savage(bsavag01) and Noah Shamus(nshamu01)
+ #     Date:     April 28, 2020
+ #     Purpose: Handles all printing functions
+ ##################################################################
+
+.section init
+.temps r5, r6, r7
+ 
+.section init 
+    #called to begin print, makes sure there are elements to print
+    print:
+        if (r1 == 0) goto main
+        r0 := -1
+        goto parse
+
+    #parses through the stack to then print
+    parse:
+        r0 := r0 + 1
+        if (r0 == r1) goto end_print
+        output ">>> "
+        r3 := r2 + r0
+        r4 := 0
+        r3 := m[r4][r3]
+        goto check_case
+
+    #checks which method to print number
+    check_case:
+        r4 := 0x80000000 
+        if (r3 == 0) goto print_zero
+        if (r3 == r4) goto print_max_neg
+        push '!' on stack r2        #signal the end of a word in the stack
+        if (r3 <s 0) goto print_neg
+        if (r3 >s 0) goto print_to_stack
+
+    #prints zero
+    print_zero:
+        output '0'
+        goto finish_print
+
+    #prints negative numbers
+    print_neg:
+        output '-'
+        r3 := r3 * -1
+        goto print_to_stack
+
+    # will interate through the output and push each element to the stack
+    # and decrease the number of in the word digits by 1 
+    print_to_stack:
+        r4 := r3 mod 10
+        if (r3 == 0) goto print_recursive
+        push r4 on stack r2
+        r3 := r3 / 10
+        goto print_to_stack
+
+    #goes through the stack and prints each number. 
+    # will continue until it reaches signal of '!'
+    print_recursive:
+        pop r4 off stack r2
+        if (r4 == '!') goto finish_print
+        output r4 + '0'
+        goto print_recursive
+
+    #prints out maximum negative number
+    print_max_neg:
+        output "-2147483648"
+        goto finish_print
+
+    #Completes new line
+    finish_print:
+        output '\n'
+        goto parse
+
+    #ends the printing
+    end_print:
+        r0 := 0
+        goto main
